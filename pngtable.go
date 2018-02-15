@@ -58,6 +58,7 @@ type TableOptions struct {
     Color color.Color
     Background color.Color
     BorderWidth int
+    LineWidth int
     BorderColor color.Color
     FontSize int
 }
@@ -77,6 +78,7 @@ func DefaultOptions() *TableOptions {
         Color: color.White,
         Background: color.Black,
         BorderWidth: 1,
+        LineWidth: 1,
         BorderColor: color.White,
         FontSize: 25,
     }
@@ -115,6 +117,11 @@ func (to *TableOptions) SetRowHeight(h int) {
 
 func (to *TableOptions) SetBorder(b int) {
     to.BorderWidth = b
+    return
+}
+
+func (to *TableOptions) SetBorderColor(c color.Color) {
+    to.BorderColor = c
     return
 }
 
@@ -202,6 +209,7 @@ func (t *Table) drawTable() {
     colWidths := t.getColWidths()
     rowHeight := t.getRowHeight()
     borderWidth := t.Options.BorderWidth
+    lineWidth := t.Options.LineWidth
     
     width := t.getWidth()
     height := t.getHeight()
@@ -327,7 +335,7 @@ func (t *Table) drawTable() {
     for i, h := range t.Header.Values {
         x += colWidths[i]
         for y1 = y - rowHeight; y1 < y; y1++ {
-            for bw = 0; bw < borderWidth; bw++ {
+            for bw = 0; bw < lineWidth; bw++ {
                 t.Image.Set(x+bw, y1, t.Options.Color)
             }
         }
@@ -357,7 +365,7 @@ func (t *Table) drawTable() {
             
             // Print col lines
             for y1 = y - rowHeight; y1 < y; y1++ {
-                for bw = 0; bw < borderWidth; bw++ {
+                for bw = 0; bw < lineWidth; bw++ {
                     t.Image.Set(x+bw, y1, t.Options.Color)
                 }
             }
