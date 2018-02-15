@@ -22,7 +22,7 @@ const (
 )
 
 var (
-    FONT_FILE = os.Getenv("GOPATH") + "/src/github.com/golang/freetype/testdata/luxisr.ttf"
+    FONT_FILE = os.Getenv("GOPATH") + "/src/github.com/haynesherway/pngtable/fonts/OpenSans-Bold.ttf"
     font *truetype.Font
 )
 
@@ -276,7 +276,7 @@ func (t *Table) drawTable() {
             hWidth += int(float64(awidth) / 64)
         }
         fmt.Println(colWidths[i])
-        pt := freetype.Pt((x-colWidths[i])+((colWidths[i]/2)-hWidth/2), y-(rowHeight-t.Options.FontSize)+2)
+        pt := freetype.Pt((x-colWidths[i])+((colWidths[i]/2)-hWidth/2), y-(rowHeight-t.Options.FontSize))
         fmt.Println(pt)
         c.DrawString(string(h), pt)
     }
@@ -309,7 +309,7 @@ func (t *Table) drawTable() {
     }
     
     
-    //t.draw()
+    t.draw()
 }
 
 func (t *Table) getColWidths() []int {
