@@ -24,6 +24,9 @@ const (
 var (
     FONT_FILE = os.Getenv("GOPATH") + "/src/github.com/haynesherway/pngtable/fonts/OpenSans-Bold.ttf"
     font *truetype.Font
+    
+    DEFAULT_COLOR = color.White
+    DEFAULT_BACKGROUND = color.Black
 )
 
 type Table struct {
@@ -34,12 +37,15 @@ type Table struct {
     Image *image.RGBA
     FileName string
     Options *TableOptions
+    Title *Row
 }
 
 type Row struct {
     Values []string
+    Picture image.Image
     Background color.Color
     Color color.Color
+    Height int
     bounds image.Rectangle
 }
 
@@ -59,7 +65,7 @@ type TableOptions struct {
 func New() *Table {
     options := DefaultOptions()
     rows := []*Row{}
-    return &Table{Header: &Row{}, Rows: rows, Options: options}
+    return &Table{Title: &Row{}, Header: &Row{}, Rows: rows, Options: options}
 }
 
 func DefaultOptions() *TableOptions {
@@ -127,9 +133,42 @@ func (r *Row) SetColor(c color.Color) (*Row) {
     return r
 }
 
+func (r *Row) SetHeight(h int) (*Row) {
+    r.Height = h
+    return r
+}
+
+func (t *Table) SetTitlePicture(i image.Image) (*Row) {
+    var row Row
+    row.Values = []string{}
+    row.Color = DEFAULT_COLOR
+    row.Background = DEFAULT_BACKGROUND
+    row.Picture = i
+    t.Title = &row
+    t.RowCount++
+    return &row
+}
+
+func (r *Row) SetPicture(i image.Image) (*Row) {
+    r.Picture = i
+    return r
+}
+
+func (t *Table) SetTitle(s string) (*Row) {
+    var row Row
+    row.Values = []string{s}
+    row.Color = DEFAULT_COLOR
+    row.Background = DEFAULT_BACKGROUND
+    t.Title = &row
+    t.RowCount++
+    return &row
+}
+
 func (t *Table) SetHeaders(h []string) (*Row) {
     var row Row
     row.Values = h
+    row.Color = DEFAULT_COLOR
+    row.Background = DEFAULT_BACKGROUND
     t.ColCount = len(h)
     t.Header = &row
     t.RowCount++
@@ -166,10 +205,6 @@ func (t *Table) drawTable() {
     
     width := t.getWidth()
     height := t.getHeight()
-    boxWidth := width - borderWidth*2
-    boxHeight := height - borderWidth*2
-    
-    fmt.Println(boxWidth, boxHeight)
     
     // Start Drawing Table 
     t.Image = image.NewRGBA(image.Rect(0, 0, width, height))
@@ -179,9 +214,16 @@ func (t *Table) drawTable() {
      //Draw Rows
     x,y = 0,0
     rows := append([]*Row{t.Header}, t.Rows...)
+    if len(t.Title.Values) > 0 || t.Title.Picture != nil {
+        rows = append([]*Row{t.Title}, rows...)
+    }
     for _, row := range rows {
         top := y+borderWidth
-        y += rowHeight
+        if row.Height != 0 {
+            y += row.Height
+        } else {
+            y += rowHeight
+        }
         row.bounds = image.Rect(0, top, width, y)
         
         //Set background
@@ -224,16 +266,7 @@ func (t *Table) drawTable() {
         }
     }
     
-    /*for i, _ := range t.Header.Values {
-        x += colWidths[i]
-        for y1 = 0; y1 < height; y1++ {
-            for bw = 0; bw < borderWidth; bw++ {
-                t.Image.Set(x+bw, y1, t.Options.Color)
-            }
-        }
-    }*/
-    
-    // Set up font
+     // Set up font
         c := freetype.NewContext()
     	c.SetDPI(72)
     	c.SetFont(font)
@@ -256,10 +289,44 @@ func (t *Table) drawTable() {
         }
     }*/
     x,y = 0,0
+    //Print Title Row 
+    if len(t.Title.Values) > 0 || t.Title.Picture != nil {
+        y += t.Title.Height
+        fmt.Println("Printing Title")
+        if t.Title.Picture != nil {
+            img := t.Title.Picture
+            pWidth := img.Bounds().Dx()
+            //pHeight := img.Bounds().Dy()
+        
+            startP := image.Point{(width - pWidth) / 2, 2}
+            rect := image.Rectangle{startP, startP.Add(img.Bounds().Size())}
+            
+            draw.Draw(t.Image,rect, img, image.ZP, draw.Over)
+        }
+        for _, h := range t.Title.Values {
+            //Print
+            hWidth := 0
+            for _, l := range(h) {
+                awidth, ok := face.GlyphAdvance(rune(l))
+                if ok != true {
+                    return
+                }
+                hWidth += int(float64(awidth) / 64)
+            }
+    
+            hfg := image.NewUniform(t.Header.Color)
+            c.SetSrc(hfg)
+                
+            pt := freetype.Pt(((width/2)-hWidth/2), y-(rowHeight-t.Options.FontSize))
+            c.DrawString(string(h), pt)
+        }
+    }
+    
+    x = 0
     y += rowHeight
     for i, h := range t.Header.Values {
         x += colWidths[i]
-        for y1 = 0; y1 < height; y1++ {
+        for y1 = y - rowHeight; y1 < y; y1++ {
             for bw = 0; bw < borderWidth; bw++ {
                 t.Image.Set(x+bw, y1, t.Options.Color)
             }
@@ -272,27 +339,28 @@ func (t *Table) drawTable() {
             if ok != true {
                 return
             }
-            fmt.Println(awidth)
             hWidth += int(float64(awidth) / 64)
         }
-        fmt.Println(colWidths[i])
+
+        hfg := image.NewUniform(t.Header.Color)
+        c.SetSrc(hfg)
+            
         pt := freetype.Pt((x-colWidths[i])+((colWidths[i]/2)-hWidth/2), y-(rowHeight-t.Options.FontSize))
-        fmt.Println(pt)
         c.DrawString(string(h), pt)
     }
     
     for _, r := range t.Rows {
         y += rowHeight
-        /*for x1 = 0; x1 <= width; x1++ {
-            bw = 0
-            for ; bw < borderWidth; bw++ {
-                t.Image.Set(x1, y+bw, t.Options.Color)
-            }
-        }
-        */
         x := 0
         for i, v := range r.Values {
             x += colWidths[i]
+            
+            // Print col lines
+            for y1 = y - rowHeight; y1 < y; y1++ {
+                for bw = 0; bw < borderWidth; bw++ {
+                    t.Image.Set(x+bw, y1, t.Options.Color)
+                }
+            }
             //Print
             vWidth := 0
             for _, l := range(v) {
@@ -302,6 +370,9 @@ func (t *Table) drawTable() {
                 }
                 vWidth += int(float64(awidth) / 64)
             }
+         
+            rfg := image.NewUniform(r.Color)
+            c.SetSrc(rfg)
             
             pt := freetype.Pt((x-colWidths[i])+((colWidths[i]/2)-vWidth/2), y-(rowHeight-t.Options.FontSize))
             c.DrawString(string(v), pt)
@@ -353,8 +424,20 @@ func (t *Table) getRowHeight() int {
 func (t *Table) getHeight() int {
     if t.Options.Height != 0 {
         return t.Options.Height
-    } else if t.Options.RowHeight != 0 {
-        return (t.Options.RowHeight * t.RowCount) + t.Options.BorderWidth
+    } else {
+        h := 0
+        rows := append([]*Row{t.Header}, t.Rows...)
+        if len(t.Title.Values) > 0 || t.Title.Picture != nil {
+            rows = append([]*Row{t.Title}, rows...)
+        }
+        for _, r := range rows {
+            if r.Height != 0 {
+                h += r.Height
+            } else if t.Options.RowHeight != 0 {
+                h += t.Options.RowHeight
+            } 
+        }
+        return h + t.Options.BorderWidth
     }
     
     return DEFAULT_HEIGHT
