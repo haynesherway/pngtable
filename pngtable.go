@@ -9,8 +9,8 @@ import (
     "io/ioutil"
     "os"
     
-    "github.com/golang/freetype"
-    "github.com/golang/freetype/truetype"
+    "github.com/haynesherway/freetype"
+    "github.com/haynesherway/freetype/truetype"
 )
 
 const (
